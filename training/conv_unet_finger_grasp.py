@@ -1,32 +1,34 @@
-from data.grasp_dataset import DPFingerGraspDataset
 import numpy as np
 import torch
 import torch.nn as nn
-from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
+from diffusers.schedulers.scheduling_ddpm import DDIMScheduler
 from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
-from training.utils import get_resnet, replace_bn_with_gn
+from training.utils import get_channel_fusion_module, get_resnet, replace_bn_with_gn
+from data.grasp_dataset import DPFingerGraspDataset
 from model.conv_unet import ConditionalUnet1D
 
 
 # TODO:change input channel of resnet to 5, or use 1x1 conv to change channel
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-vision_encoder = get_resnet('resnet18', inplane = 5)
+vision_encoder = get_resnet('resnet18')
+channel_fusion_module = get_channel_fusion_module(5, 3)
 
 # IMPORTANT!
 # replace all BatchNorm with GroupNorm to work with EMA
 # performance will tank if you forget to do this!
 vision_encoder = replace_bn_with_gn(vision_encoder)
+channel_fusion_module = replace_bn_with_gn(channel_fusion_module)
 
 # ResNet18 has output dim of 512
 vision_feature_dim = 512
 # agent_pos is 2 dimensional
-lowdim_obs_dim = 2
+#lowdim_obs_dim = 2
 # observation feature has 514 dims in total per step
-obs_dim = vision_feature_dim + lowdim_obs_dim
-action_dim = 2
+obs_dim = vision_feature_dim
+action_dim = 6
 
 # create network object
 noise_pred_net = ConditionalUnet1D(
@@ -37,22 +39,23 @@ noise_pred_net = ConditionalUnet1D(
 # the final arch has 2 parts
 nets = nn.ModuleDict({
     'vision_encoder': vision_encoder,
+    'channel_fusion_module': channel_fusion_module,
     'noise_pred_net': noise_pred_net
 })
 
-dataset = DPFingerGraspDataset(s3_path="s3://dp-finger-grasp-dataset/")
-dataloader = dataloader = torch.utils.data.DataLoader(
+dataset = DPFingerGraspDataset(s3_path="s3://covariant-datasets-prod/dp_finger_grasp_dataset_test_2025_07_18_10_36", split="train")
+dataloader = torch.utils.data.DataLoader(
     dataset,
-    batch_size=64,
-    num_workers=4,
+    batch_size=32,
+    #num_workers=4,
     shuffle=True,
     # accelerate cpu-gpu transfer
     pin_memory=True,
     # don't kill worker process afte each epoch
-    persistent_workers=True
+    #persistent_workers=True
 )
 
-noise_scheduler = DDPMScheduler(
+noise_scheduler = DDIMScheduler(
     num_train_timesteps=1000,
     # the choise of beta schedule has big impact on performance
     # we found squared cosine works the best
@@ -96,22 +99,16 @@ with tqdm(range(num_epochs), desc='Epoch') as tglobal:
                 # data normalized in dataset
                 # device transfer
                 nimage = nbatch['image'].to(device)
-                ndepth_map = nbatch['depth_map'].to(device)
-                nobj_mask = nbatch['obj_mask'].to(device)
+                ndepth_map = nbatch['depth_map'].to(device).unsqueeze(1)
+                nobj_mask = nbatch['obj_mask'].to(device).unsqueeze(1)
                 ntop_grasp = nbatch['top_grasp'].to(device)
                 B = ntop_grasp.shape[0]
 
-                obs_cond = torch.cat([nimage, ndepth_map, nobj_mask], dim=-1)
+                obs_cond = torch.cat([nimage, ndepth_map, nobj_mask], dim=1)
+                obs_cond = nets['channel_fusion_module'](obs_cond)
 
                 # encoder vision features
-                obs_features = nets['vision_encoder'](obs_cond.flatten(end_dim=1))
-                obs_features = obs_features.reshape(
-                    *obs_cond.shape[:2],-1)
-                # (B,obs_horizon,D)
-
-                # concatenate vision feature and low-dim obs
-                obs_cond = obs_features.flatten(start_dim=1)
-                # (B, obs_horizon * obs_dim)
+                obs_cond = nets['vision_encoder'](obs_cond) # (B, 512)
 
                 # sample noise to add to actions
                 noise = torch.randn(ntop_grasp.shape, device=device)
@@ -155,3 +152,4 @@ with tqdm(range(num_epochs), desc='Epoch') as tglobal:
 # is used for inference
 ema_nets = nets
 ema.copy_to(ema_nets.parameters())
+

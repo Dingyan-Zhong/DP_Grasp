@@ -3,6 +3,13 @@ import torch.nn as nn
 import torchvision
 from typing import Callable
 
+def get_channel_fusion_module(in_channels: int, out_channels: int, kernel_size: int = 1, padding: int = 0, stride: int = 1) -> nn.Module:
+    return nn.Sequential(
+        nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding, stride=stride),
+        nn.BatchNorm2d(out_channels),
+        nn.ReLU(inplace=True),
+    )
+
 def get_resnet(name:str, weights=None, **kwargs) -> nn.Module:
     """
     name: resnet18, resnet34, resnet50

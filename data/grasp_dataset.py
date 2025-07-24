@@ -5,25 +5,26 @@ from io import BytesIO
 import os
 import boto3
 
-class DPFingerGraspDataset(torch.utils.data.Dataset):
-    def __init__(self, s3_path: str):
+class RGBD_R7_Dataset(torch.utils.data.Dataset):
+    def __init__(self, s3_path: str, split: str):
         self.s3_path = s3_path
-        self.pq_table = pd.read_parquet(self.s3_path)
+        table = pd.read_parquet(self.s3_path)
+        self.split = split
+        self.table = table[table["split"] == self.split]
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     def __len__(self):
-        return len(self.pq_table)
+        return len(self.table)
 
     def __getitem__(self, idx):
-        s3_links = self.pq_table.iloc[idx]
+        s3_links = self.table.iloc[idx]
 
         # load the data from s3
         s3_client = boto3.client('s3')
         datum = {
-            "image": torch.from_numpy(load_np_s3(s3_links["image"], s3_client)),
-            "depth_map": torch.from_numpy(load_np_s3(s3_links["depth_map"], s3_client)),
-            "obj_mask": torch.from_numpy(load_np_s3(s3_links["obj_mask"], s3_client)),
-            "top_grasp": torch.from_numpy(load_np_s3(s3_links["top_grasp"], s3_client)),
+            "obj_depth_map": torch.from_numpy(load_np_s3(s3_links["obj_depth_map"], s3_client)),
+            "obj_rgb": torch.from_numpy(load_np_s3(s3_links["obj_rgb"], s3_client)),
+            "top_grasp_r7": torch.from_numpy(load_np_s3(s3_links["top_grasp_r7"], s3_client)),
         }
 
         return datum
