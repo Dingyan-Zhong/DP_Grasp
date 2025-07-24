@@ -18,11 +18,17 @@ def draw_top_grasp_point(grasp_point: torch.Tensor,
     # Convert tensors to numpy arrays
     if isinstance(grasp_point, torch.Tensor):
         grasp_point_npy = grasp_point.detach().cpu().numpy()
+    else:
+        grasp_point_npy = grasp_point
     if isinstance(rgb, torch.Tensor):
         rgb_npy = rgb.permute(1, 2, 0).detach().cpu().numpy()
         rgb_npy = (255*rgb_npy).astype(np.uint8)
+    else:
+        rgb_npy = rgb.transpose(1, 2, 0)
     if isinstance(cam_intrinsics, torch.Tensor):
         cam_intrinsics_npy = cam_intrinsics.detach().cpu().numpy()
+    else:
+        cam_intrinsics_npy = cam_intrinsics
 
     img = Image.fromarray(rgb_npy)
     draw = ImageDraw.Draw(img)
