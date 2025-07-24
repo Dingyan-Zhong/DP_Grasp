@@ -1,0 +1,37 @@
+Dataset S3 Link:
+s3://covariant-datasets-prod/dp_finger_grasp_dataset_small_test_2025_07_24_06_00
+
+
+Dataset Schema:
+
+session_id: str, the id of the brain session
+
+point_map: np.array in shape [3, H, W], the point cloud inside the RoI
+
+normal_map: np.array in shape [3, H, W], the unit normal vector at each point
+
+depth_map: np.array in shape [H, W], the depth of each point in the RoI
+
+obj_mask: np.array in shape [H, W], the mask of the selected object, decided by on which object the best grasp point is
+
+image: np.array in shape [3, H, W], the RoI resized image
+
+obj_point_map: np.array in shape [3, H_obj, W_obj], point map cropped using the 2d bbox of the object's mask. The dimensions may vary across objects and scenes.
+
+obj_depth_map: np.array in shape [H_obj, W_obj], depth map cropped using the 2d bbox of the object's mask. The dimensions may vary across objects and scenes.
+
+obj_rgb: np.array in shape [3, H_obj, W_obj], RGB image cropped using the 2d bbox of the object's mask. The dimensions may vary across objects and scenes.
+
+obj_bbox: np.array in shape [4, ], [x_min, y_min, x_max, y_max], describing the 2d bbox of a slightly enlarged mask of the object on the original RGB image.
+
+top_grasp_r7: np.array in shape [7, ], the best collision-free grasp point on the selected object, (x, y, z, axis-angle rotation, width)
+
+all_grasps_on_top_obj_r7: np.array in shape [N_grasp, 7], all collision-free grasp points on the selected object, including the best one. N_grasp may vary across scenes.
+
+top_grasp_r9: np.array in shape [9, ], the best collision-free grasp point on the selected object, (x,y,z for two finger tips, negated Z axis of the tcp frame in the camera frame, which is also the inversed direction of approaching)
+
+all_grasps_on_top_obj_r9: np.array in shape [N_grasp, 9], all collision-free grasp points on the selected object, including the best one. N_grasp may vary across scenes.
+
+reference_camera_intrinsics: np.array in shape [3, 3], the RoI resized reference camera intrinsics.
+
+split: str, whether the datum is in the "train" or "val" split
