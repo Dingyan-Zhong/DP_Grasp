@@ -6,7 +6,7 @@ from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from training.utils import get_channel_fusion_module, get_resnet, replace_bn_with_gn
-from data.grasp_dataset import DPFingerGraspDataset
+from data.grasp_dataset import RGBD_R7_Dataset
 from model.conv_unet import ConditionalUnet1D
 
 
@@ -43,7 +43,7 @@ nets = nn.ModuleDict({
     'noise_pred_net': noise_pred_net
 })
 
-dataset = DPFingerGraspDataset(s3_path="s3://covariant-datasets-prod/dp_finger_grasp_dataset_test_2025_07_18_10_36", split="train")
+dataset = RGBD_R7_Dataset(s3_path="s3://covariant-datasets-prod/dp_finger_grasp_dataset_test_2025_07_18_10_36", split="train")
 dataloader = torch.utils.data.DataLoader(
     dataset,
     batch_size=32,

@@ -1,3 +1,6 @@
+import os
+import json
+import wandb
 import torch
 import torch.nn as nn
 import torchvision
@@ -76,3 +79,74 @@ def replace_bn_with_gn(
             num_channels=x.num_features)
     )
     return root_module
+
+
+def save_checkpoint(model: nn.Module, 
+                    ema_model: nn.Module, 
+                    optimizer: torch.optim.Optimizer, 
+                    scheduler: torch.optim.lr_scheduler._LRScheduler, 
+                    step: int, 
+                    filepath: str, 
+                    use_wandb: bool=False)->None:
+    """
+    Saves a checkpoint locally and optionally logs a metadata artifact to W&B.
+    """
+    # 1. Save the full checkpoint file locally
+    state = {
+        'step': step,
+        'model_state_dict': model.state_dict(),
+        'ema_state_dict': ema_model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'scheduler_state_dict': scheduler.state_dict()
+    }
+    torch.save(state, filepath)
+    print(f"Checkpoint saved locally to '{filepath}' at step {step}.")
+
+    # 2. If using W&B, log a metadata artifact
+    if use_wandb:
+        metadata = {
+            'step': step,
+            'local_checkpoint_path': os.path.abspath(filepath),
+        }
+        meta_filepath = "checkpoint_meta.json"
+        with open(meta_filepath, 'w') as f:
+            json.dump(metadata, f, indent=4)
+
+        artifact = wandb.Artifact(
+            name=f"checkpoint-meta-{wandb.run.id}",
+            type="checkpoint_metadata",
+            metadata={"step": step}
+        )
+        artifact.add_file(meta_filepath)
+        wandb.log_artifact(artifact)
+        os.remove(meta_filepath)
+        print("Checkpoint metadata logged as a W&B Artifact.")
+
+
+def load_checkpoint(model: nn.Module, 
+                    ema_model: nn.Module, 
+                    optimizer: torch.optim.Optimizer, 
+                    scheduler: torch.optim.lr_scheduler._LRScheduler, 
+                    filepath: str, 
+                    device: torch.device)->int:
+    """
+    Loads the full checkpoint from a local filepath.
+    """
+    if not os.path.exists(filepath):
+        print("Checkpoint file not found. Starting from scratch.")
+        return 0
+
+    try:
+        checkpoint = torch.load(filepath, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        ema_model.load_state_dict(checkpoint['ema_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        if 'scheduler_state_dict' in checkpoint:
+            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        
+        start_step = checkpoint['step']
+        print(f"Checkpoint loaded successfully from '{filepath}'. Resuming from step {start_step}.")
+        return start_step
+    except Exception as e:
+        print(f"Error loading checkpoint: {e}. Starting from scratch.")
+        return 0
