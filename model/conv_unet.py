@@ -236,10 +236,14 @@ class ConditionalUnet1D(nn.Module):
             print("before upsample ", idx, x.shape)
             x = torch.cat((x, h.pop()), dim=1)
             x = resnet(x, global_feature)
+            print("after resnet ", idx, x.shape)
             x = resnet2(x, global_feature)
+            print("after resnet2 ", idx, x.shape)
             x = upsample(x)
+            print("after upsample ", idx, x.shape)
 
         x = self.final_conv(x)
+        print("after final conv ", x.shape)
 
         # (B,C,T)
         x = x.moveaxis(-1,-2)
