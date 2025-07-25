@@ -26,7 +26,7 @@ class RGBD_R7_Dataset(torch.utils.data.Dataset):
         datum = {
             "obj_depth_map": self.resize_transform(torch.from_numpy(load_np_s3(s3_links["obj_depth_map"], s3_client)).unsqueeze(0)),
             "obj_rgb": self.resize_transform(torch.from_numpy(load_np_s3(s3_links["obj_rgb"], s3_client))),
-            "top_grasp_r7": torch.from_numpy(load_np_s3(s3_links["top_grasp_r7"], s3_client)).unsqueeze(1),
+            "top_grasp_r7": torch.from_numpy(load_np_s3(s3_links["top_grasp_r7"], s3_client)).unsqueeze(0),
         }
 
         return datum
