@@ -14,7 +14,7 @@ from model.conv_unet import ConditionalUnet1D
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 vision_encoder = get_resnet('resnet18')
-channel_fusion_module = get_channel_fusion_module(5, 3)
+channel_fusion_module = get_channel_fusion_module(4, 3)
 
 # IMPORTANT!
 # replace all BatchNorm with GroupNorm to work with EMA
