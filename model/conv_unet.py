@@ -194,13 +194,13 @@ class ConditionalUnet1D(nn.Module):
             timestep: Union[torch.Tensor, float, int],
             global_cond=None):
         """
-        x: (B,T,input_dim)
+        x: (B,input_dim)
         timestep: (B,) or int, diffusion step
         global_cond: (B,global_cond_dim)
-        output: (B,T,input_dim)
+        output: (B,input_dim)
         """
         # (B,T,C)
-        sample = sample.moveaxis(-1,-2)
+        #sample = sample.moveaxis(-1,-2)
         # (B,C,T)
 
         # 1. time
@@ -240,6 +240,6 @@ class ConditionalUnet1D(nn.Module):
         x = self.final_conv(x)
 
         # (B,C,T)
-        x = x.moveaxis(-1,-2)
+        #x = x.moveaxis(-1,-2)
         # (B,T,C)
         return x

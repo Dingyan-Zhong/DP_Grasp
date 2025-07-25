@@ -28,7 +28,7 @@ vision_feature_dim = 512
 #lowdim_obs_dim = 2
 # observation feature has 514 dims in total per step
 obs_dim = vision_feature_dim
-action_dim = 6
+action_dim = 7
 
 # create network object
 noise_pred_net = ConditionalUnet1D(
