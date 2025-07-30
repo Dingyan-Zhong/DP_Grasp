@@ -163,12 +163,12 @@ def main(config: ConvUnetTrainingConfig):
                 })
 
             if config.save_interval is not None:
-                if epoch % config.save_interval == 0:
-                    save_checkpoint(model, ema_model, optimizer, lr_scheduler, epoch, config.save_directory+f"/{config.project_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{config.epochs}.pth", config.use_wandb, config.asdict())
+                if (epoch + 1) % config.save_interval == 0:
+                    save_checkpoint(model, ema_model, optimizer, lr_scheduler, epoch, config.save_directory+f"/{config.project_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{config.epochs}.pth", config.use_wandb, attr.asdict(config))
         
             tglobal.set_postfix(train_loss=train_loss, val_loss=val_loss)
 
-        save_checkpoint(model, ema_model, optimizer, lr_scheduler, config.epochs, config.save_directory+f"/{config.project_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{config.epochs}.pth", config.use_wandb, config.asdict())
+        save_checkpoint(model, ema_model, optimizer, lr_scheduler, config.epochs, config.save_directory+f"/{config.project_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{config.epochs}.pth", config.use_wandb, attr.asdict(config))
 
         print(f"Training complete. Saved checkpoint to {config.save_directory}")
 
