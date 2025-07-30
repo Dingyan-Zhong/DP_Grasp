@@ -222,24 +222,24 @@ class ConditionalUnet1D(nn.Module):
 
         x = sample
         h = []
-        for idx, (resnet, resnet2, downsample) in enumerate(self.down_modules):
+        for idx, (resnet, resnet2) in enumerate(self.down_modules):
             x = resnet(x, global_feature)
             x = resnet2(x, global_feature)
             print("after downsample ", idx, x.shape)
             h.append(x)
-            x = downsample(x)
+            #x = downsample(x)
 
         for mid_module in self.mid_modules:
             x = mid_module(x, global_feature)
 
-        for idx, (resnet, resnet2, upsample) in enumerate(self.up_modules):
+        for idx, (resnet, resnet2) in enumerate(self.up_modules):
             print("before upsample ", idx, x.shape)
             x = torch.cat((x, h.pop()), dim=1)
             x = resnet(x, global_feature)
             print("after resnet ", idx, x.shape)
             x = resnet2(x, global_feature)
             print("after resnet2 ", idx, x.shape)
-            x = upsample(x)
+            #x = upsample(x)
             print("after upsample ", idx, x.shape)
 
         x = self.final_conv(x)
