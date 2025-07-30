@@ -8,9 +8,9 @@ from diffusers.schedulers.scheduling_ddim import DDIMScheduler
 from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
-from DP_grasp.training.utils import get_channel_fusion_module, get_resnet, load_checkpoint, replace_bn_with_gn, save_checkpoint
-from DP_grasp.data.grasp_dataset import RGBD_R7_Dataset
-from DP_grasp.model.conv_unet import ConditionalUnet1D
+from DP_Grasp.training.utils import get_channel_fusion_module, get_resnet, load_checkpoint, replace_bn_with_gn, save_checkpoint
+from DP_Grasp.data.grasp_dataset import RGBD_R7_Dataset
+from DP_Grasp.model.conv_unet import ConditionalUnet1D
 
 
 @attr.s
