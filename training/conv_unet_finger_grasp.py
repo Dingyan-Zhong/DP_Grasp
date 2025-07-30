@@ -1,3 +1,4 @@
+from typing import Optional
 import attr
 import datetime
 import wandb
@@ -24,9 +25,9 @@ class ConvUnetTrainingConfig:
     save_interval: int = attr.ib()
     save_directory: str = attr.ib()
     epochs: int = attr.ib()
-    wandb_run_id: str | None = attr.ib()
-    local_wandb_run_file: str | None = attr.ib()
-    checkpoint_path: str | None = attr.ib()
+    wandb_run_id: Optional[str] = attr.ib()
+    local_wandb_run_file: Optional[str] = attr.ib()
+    checkpoint_path: Optional[str] = attr.ib()
     use_wandb: bool = attr.ib()
 
 
