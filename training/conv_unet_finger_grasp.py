@@ -4,7 +4,7 @@ import wandb
 import numpy as np
 import torch
 import torch.nn as nn
-from diffusers.schedulers.scheduling_ddpm import DDIMScheduler
+from diffusers.schedulers.scheduling_ddim import DDIMScheduler
 from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
