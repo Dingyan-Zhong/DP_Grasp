@@ -159,7 +159,7 @@ class ConditionalUnet1D(nn.Module):
                 ConditionalResidualBlock1D(
                     dim_out, dim_out, cond_dim=cond_dim,
                     kernel_size=kernel_size, n_groups=n_groups),
-                Downsample1d(dim_out) if not is_last else nn.Identity()
+                #Downsample1d(dim_out) if not is_last else nn.Identity()
             ]))
 
         up_modules = nn.ModuleList([])
@@ -172,7 +172,7 @@ class ConditionalUnet1D(nn.Module):
                 ConditionalResidualBlock1D(
                     dim_in, dim_in, cond_dim=cond_dim,
                     kernel_size=kernel_size, n_groups=n_groups),
-                Upsample1d(dim_in) if not is_last else nn.Identity()
+                #Upsample1d(dim_in) if not is_last else nn.Identity()
             ]))
 
         final_conv = nn.Sequential(
