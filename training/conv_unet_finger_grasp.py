@@ -1,3 +1,6 @@
+import attr
+import datetime
+import wandb
 import numpy as np
 import torch
 import torch.nn as nn
@@ -5,151 +8,188 @@ from diffusers.schedulers.scheduling_ddpm import DDIMScheduler
 from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
-from training.utils import get_channel_fusion_module, get_resnet, replace_bn_with_gn
+from training.utils import get_channel_fusion_module, get_resnet, load_checkpoint, replace_bn_with_gn, save_checkpoint
 from data.grasp_dataset import RGBD_R7_Dataset
 from model.conv_unet import ConditionalUnet1D
 
 
-# TODO:change input channel of resnet to 5, or use 1x1 conv to change channel
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+@attr.s
+class ConvUnetTrainingConfig:
+    dataset_path: str = attr.ib()
+    project_name: str = attr.ib()
+    learning_rate: float = attr.ib()
+    num_warmup_steps: int = attr.ib()
+    ema_power: float = attr.ib()
+    batch_size: int = attr.ib()
+    save_interval: int = attr.ib()
+    save_directory: str = attr.ib()
+    epochs: int = attr.ib()
+    wandb_run_id: str | None = attr.ib()
+    local_wandb_run_file: str | None = attr.ib()
+    checkpoint_path: str | None = attr.ib()
+    use_wandb: bool = attr.ib()
 
-vision_encoder = get_resnet('resnet18')
-channel_fusion_module = get_channel_fusion_module(4, 3)
 
-# IMPORTANT!
-# replace all BatchNorm with GroupNorm to work with EMA
-# performance will tank if you forget to do this!
-vision_encoder = replace_bn_with_gn(vision_encoder)
-channel_fusion_module = replace_bn_with_gn(channel_fusion_module)
+def train_epoch(
+        model: nn.Module,
+        ema_model: nn.Module,
+        optimizer: torch.optim.Optimizer,
+        lr_scheduler: torch.optim.lr_scheduler._LRScheduler,
+        noise_scheduler: DDIMScheduler,
+        num_train_timesteps: int,
+        train_loader: torch.utils.data.DataLoader,
+        device: torch.device,
+        is_train: bool = True,
+    )->float:
 
-# ResNet18 has output dim of 512
-vision_feature_dim = 512
-# agent_pos is 2 dimensional
-#lowdim_obs_dim = 2
-# observation feature has 514 dims in total per step
-obs_dim = vision_feature_dim
-action_dim = 7
+    epoch_loss = []
 
-# create network object
-noise_pred_net = ConditionalUnet1D(
-    input_dim=action_dim,
-    global_cond_dim=obs_dim
-)
+    for batch in train_loader:
+        depth_map = batch['obj_depth_map'].to(device)
+        obj_mask = batch['obj_rgb'].to(device)
+        top_grasp = batch['top_grasp_r7'].to(device)
 
-# the final arch has 2 parts
-nets = nn.ModuleDict({
-    'vision_encoder': vision_encoder,
-    'channel_fusion_module': channel_fusion_module,
-    'noise_pred_net': noise_pred_net
-})
+        if is_train:
+            optimizer.zero_grad()
 
-dataset = RGBD_R7_Dataset(s3_path="s3://covariant-datasets-prod/dp_finger_grasp_dataset_test_2025_07_18_10_36", split="train")
-dataloader = torch.utils.data.DataLoader(
-    dataset,
-    batch_size=32,
-    #num_workers=4,
-    shuffle=True,
-    # accelerate cpu-gpu transfer
-    pin_memory=True,
-    # don't kill worker process afte each epoch
-    #persistent_workers=True
-)
+        # encode the observation
+        obs_cond = torch.cat([depth_map, obj_mask], dim=1)
+        obs_cond = model['channel_fusion_module'](obs_cond)
+        obs_cond = model['vision_encoder'](obs_cond)
 
-noise_scheduler = DDIMScheduler(
-    num_train_timesteps=1000,
-    # the choise of beta schedule has big impact on performance
-    # we found squared cosine works the best
-    beta_schedule='squaredcos_cap_v2',
-    # clip output to [-1,1] to improve stability
-    clip_sample=True,
-    # our network predicts noise (instead of denoised action)
-    prediction_type='epsilon'
-)
-
-num_epochs = 100
-
-# Exponential Moving Average
-# accelerates training and improves stability
-# holds a copy of the model weights
-ema = EMAModel(
-    parameters=nets.parameters(),
-    power=0.75)
-
-# Standard ADAM optimizer
-# Note that EMA parametesr are not optimized
-optimizer = torch.optim.AdamW(
-    params=nets.parameters(),
-    lr=1e-4, weight_decay=1e-6)
-
-# Cosine LR schedule with linear warmup
-lr_scheduler = get_scheduler(
-    name='cosine',
-    optimizer=optimizer,
-    num_warmup_steps=500,
-    num_training_steps=len(dataloader) * num_epochs
-)
-
-with tqdm(range(num_epochs), desc='Epoch') as tglobal:
-    # epoch loop
-    for epoch_idx in tglobal:
-        epoch_loss = list()
-        # batch loop
-        with tqdm(dataloader, desc='Batch', leave=False) as tepoch:
-            for nbatch in tepoch:
-                # data normalized in dataset
-                # device transfer
-                nimage = nbatch['image'].to(device)
-                ndepth_map = nbatch['depth_map'].to(device).unsqueeze(1)
-                nobj_mask = nbatch['obj_mask'].to(device).unsqueeze(1)
-                ntop_grasp = nbatch['top_grasp'].to(device)
-                B = ntop_grasp.shape[0]
-
-                obs_cond = torch.cat([nimage, ndepth_map, nobj_mask], dim=1)
-                obs_cond = nets['channel_fusion_module'](obs_cond)
-
-                # encoder vision features
-                obs_cond = nets['vision_encoder'](obs_cond) # (B, 512)
-
-                # sample noise to add to actions
-                noise = torch.randn(ntop_grasp.shape, device=device)
-
-                # sample a diffusion iteration for each data point
-                timesteps = torch.randint(
-                    0, noise_scheduler.config.num_train_timesteps,
+        B = top_grasp.shape[0]
+        timesteps = torch.randint(
+                    0, num_train_timesteps,
                     (B,), device=device
-                ).long()
+                ).long().to(device)
 
-                # add noise to the clean images according to the noise magnitude at each diffusion iteration
-                # (this is the forward diffusion process)
-                noisy_actions = noise_scheduler.add_noise(
-                    ntop_grasp, noise, timesteps)
+        noise = torch.randn(top_grasp.shape, device=device, dtype=torch.float32)
+        noisy_actions = noise_scheduler.add_noise(top_grasp, noise, timesteps).to(torch.float32)
 
-                # predict the noise residual
-                noise_pred = noise_pred_net(
-                    noisy_actions, timesteps, global_cond=obs_cond)
+        # predict the noise residual
+        noise_pred = model['noise_pred_net'](noisy_actions, timesteps, global_cond=obs_cond)
 
-                # L2 loss
-                loss = nn.functional.mse_loss(noise_pred, noise)
+        loss = nn.functional.mse_loss(noise_pred, noise)
+        
+        if is_train:
+            loss.backward()
+            optimizer.step()
+            lr_scheduler.step()
+            ema_model.step(model.parameters())
 
-                # optimize
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-                # step lr scheduler every batch
-                # this is different from standard pytorch behavior
-                lr_scheduler.step()
+        epoch_loss.append(loss.item())
 
-                # update Exponential Moving Average of the model weights
-                ema.step(nets.parameters())
+    return np.mean(epoch_loss)
 
-                # logging
-                loss_cpu = loss.item()
-                epoch_loss.append(loss_cpu)
-                tepoch.set_postfix(loss=loss_cpu)
-        tglobal.set_postfix(loss=np.mean(epoch_loss))
 
-# Weights of the EMA model
-# is used for inference
-ema_nets = nets
-ema.copy_to(ema_nets.parameters())
+def main(config: ConvUnetTrainingConfig):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    train_dataset = RGBD_R7_Dataset(config.dataset_path, split="train")
+    val_dataset = RGBD_R7_Dataset(config.dataset_path, split="val")
+
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
+
+    channel_fusion_module = get_channel_fusion_module(4, 3).to(device)
+    vision_encoder = get_resnet('resnet18').to(device)
+    vision_encoder = replace_bn_with_gn(vision_encoder)
+
+    noise_pred_net = ConditionalUnet1D().to(device)
+
+    model = nn.ModuleDict({
+        'vision_encoder': vision_encoder.to(device),
+        'channel_fusion_module': channel_fusion_module.to(device),
+        'noise_pred_net': noise_pred_net.to(device)
+    }).to(device)
+
+    
+    optimizer = torch.optim.AdamW(params=model.parameters(), lr=config.learning_rate, weight_decay=1e-6)
+    ema_model = EMAModel(model, power=config.ema_power)
+    noise_scheduler = DDIMScheduler(
+        num_train_timesteps=1000,
+        beta_schedule='squaredcos_cap_v2',
+        clip_sample=True,
+        prediction_type='epsilon'
+    )
+
+    lr_scheduler = get_scheduler(
+        name='cosine',
+        optimizer=optimizer,
+        num_warmup_steps=config.num_warmup_steps,
+        num_training_steps=len(train_loader) * config.epochs
+    )
+
+    if config.checkpoint_path is not None:
+        start_step = load_checkpoint(model, ema_model, optimizer, lr_scheduler, config.checkpoint_path, device)
+    else:
+        start_step = 0
+
+    if config.use_wandb:
+        if config.wandb_run_id is not None:
+            wandb.init(project=config.project_name, id=config.wandb_run_id, config=config, resume="allow")
+        else:
+            wandb.init(project=config.project_name, config=config)
+
+    with tqdm(range(config.epochs), desc='Epoch') as tglobal:
+        for epoch in tglobal:
+            model.train()
+            train_loss = train_epoch(model, 
+                                     ema_model, 
+                                     optimizer, 
+                                     lr_scheduler, 
+                                     noise_scheduler, 
+                                     noise_scheduler.config.num_train_timesteps, 
+                                     train_loader, 
+                                     device, 
+                                     is_train=True)
+
+            model.eval()
+            with torch.no_grad():
+                val_loss = train_epoch(model, 
+                                       ema_model, 
+                                       optimizer, 
+                                       lr_scheduler, 
+                                       noise_scheduler, 
+                                       noise_scheduler.config.num_train_timesteps, 
+                                       val_loader, device, 
+                                       is_train=False)
+
+            if config.use_wandb:
+                wandb.log({
+                    "train_loss": train_loss,
+                    "val_loss": val_loss
+                })
+
+            if config.save_interval is not None:
+                if epoch % config.save_interval == 0:
+                    save_checkpoint(model, ema_model, optimizer, lr_scheduler, epoch, config.save_directory, config.use_wandb, config.asdict())
+        
+            tglobal.set_postfix(train_loss=train_loss, val_loss=val_loss)
+
+        save_checkpoint(model, ema_model, optimizer, lr_scheduler, config.epochs, config.save_directory+f"/{config.project_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{config.epochs}.pth", config.use_wandb, config.asdict())
+
+        print(f"Training complete. Saved checkpoint to {config.save_directory}")
+
+
+if __name__ == "__main__":
+    config = ConvUnetTrainingConfig(
+        dataset_path="s3://covariant-datasets-prod/dp_finger_grasp_dataset_small_test_2025_07_24_09_40",
+        project_name="conv_unet_finger_grasp",
+        learning_rate=1e-4,
+        num_warmup_steps=100,
+        ema_power=0.75,
+        batch_size=32,
+        save_interval=100,
+        save_directory="/home/ubuntu/DP_grasp/checkpoints",
+        epochs=1000,
+        wandb_run_id=None,
+        local_wandb_run_file=None,
+        checkpoint_path=None,
+        use_wandb=True,
+    )
+
+    main(config)
+
+            
+    

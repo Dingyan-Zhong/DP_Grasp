@@ -87,6 +87,7 @@ def save_checkpoint(model: nn.Module,
                     scheduler: torch.optim.lr_scheduler._LRScheduler, 
                     step: int, 
                     filepath: str, 
+                    training_config: dict,
                     use_wandb: bool=False)->None:
     """
     Saves a checkpoint locally and optionally logs a metadata artifact to W&B.
@@ -107,6 +108,7 @@ def save_checkpoint(model: nn.Module,
         metadata = {
             'step': step,
             'local_checkpoint_path': os.path.abspath(filepath),
+            'training_config': training_config,
         }
         meta_filepath = "checkpoint_meta.json"
         with open(meta_filepath, 'w') as f:
