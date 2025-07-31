@@ -172,9 +172,7 @@ def load_config_from_yaml(config_path: str) -> dict:
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description='Train ConvUNet for finger grasp')
-    parser.add_argument('--yaml_path', type=str, default='DP_Grasp/training/configs/conv_unte_finger_grasp.yaml',
-                       help='Path to YAML config file')
-    
+    parser.add_argument('--yaml_path', type=str, help='Path to YAML config file')
     # Add command line overrides for common parameters
     parser.add_argument('--batch_size', type=int, help='Override batch size')
     parser.add_argument('--learning_rate', type=float, help='Override learning rate')

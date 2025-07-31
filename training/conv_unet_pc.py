@@ -10,7 +10,7 @@ from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from DP_Grasp.training.utils import get_channel_fusion_module, get_resnet, load_checkpoint, replace_bn_with_gn, save_checkpoint
-from DP_Grasp.data.grasp_dataset import RGBD_R7_Dataset
+from DP_Grasp.data.grasp_dataset import PC_R7_Dataset
 from DP_Grasp.model.conv_unet import ConditionalUnet1D
 from DP_Grasp.training.utils import load_config_from_yaml, parse_args
 
@@ -47,17 +47,16 @@ def train_epoch(
     epoch_loss = []
 
     for batch in train_loader:
-        depth_map = batch['obj_depth_map'].to(device)
-        obj_mask = batch['obj_rgb'].to(device)
+        point_map = batch['obj_point_map_unfiltered'].to(device)
         top_grasp = batch['top_grasp_r7'].to(device)
 
         if is_train:
             optimizer.zero_grad()
 
         # encode the observation
-        obs_cond = torch.cat([depth_map, obj_mask], dim=1)
-        obs_cond = model['channel_fusion_module'](obs_cond)
-        obs_cond = model['vision_encoder'](obs_cond)
+        #obs_cond = torch.cat([depth_map, obj_mask], dim=1)
+        #obs_cond = model['channel_fusion_module'](obs_cond)
+        obs_cond = model['vision_encoder'](point_map)
 
         B = top_grasp.shape[0]
         timesteps = torch.randint(
@@ -86,14 +85,15 @@ def train_epoch(
 
 def main(config: ConvUnetTrainingConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    start_time = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
-    train_dataset = RGBD_R7_Dataset(config.dataset_path, split="train")
-    val_dataset = RGBD_R7_Dataset(config.dataset_path, split="val")
+    train_dataset = PC_R7_Dataset(config.dataset_path, split="train")
+    val_dataset = PC_R7_Dataset(config.dataset_path, split="val")
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
 
-    channel_fusion_module = get_channel_fusion_module(4, 3).to(device)
+    #channel_fusion_module = get_channel_fusion_module(4, 3).to(device)
     vision_encoder = get_resnet('resnet18').to(device)
     vision_encoder = replace_bn_with_gn(vision_encoder)
 
@@ -101,7 +101,7 @@ def main(config: ConvUnetTrainingConfig):
 
     model = nn.ModuleDict({
         'vision_encoder': vision_encoder.to(device),
-        'channel_fusion_module': channel_fusion_module.to(device),
+        #'channel_fusion_module': channel_fusion_module.to(device),
         'noise_pred_net': noise_pred_net.to(device)
     }).to(device)
 
@@ -165,11 +165,11 @@ def main(config: ConvUnetTrainingConfig):
 
             if config.save_interval is not None:
                 if (epoch + 1) % config.save_interval == 0:
-                    save_checkpoint(model, ema_model, optimizer, lr_scheduler, epoch, config.save_directory+f"/{config.project_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{config.epochs}.pth", config.use_wandb, attr.asdict(config))
+                    save_checkpoint(model, ema_model, optimizer, lr_scheduler, epoch, config.save_directory+f"/{config.project_name}_{start_time}_{epoch}_epoch.pth", config.use_wandb, attr.asdict(config))
         
             tglobal.set_postfix(train_loss=train_loss, val_loss=val_loss)
 
-        save_checkpoint(model, ema_model, optimizer, lr_scheduler, config.epochs, config.save_directory+f"/{config.project_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{config.epochs}.pth", config.use_wandb, attr.asdict(config))
+        save_checkpoint(model, ema_model, optimizer, lr_scheduler, config.epochs, config.save_directory+f"/{config.project_name}_{start_time}_{config.epochs}_epoch.pth", config.use_wandb, attr.asdict(config))
 
         print(f"Training complete. Saved checkpoint to {config.save_directory}")
 
