@@ -183,11 +183,11 @@ class PC_R10_Dataset(torch.utils.data.Dataset):
         
         top_grasp_r7 = torch.from_numpy(
                 np.load(get_cache_path(self.cache_dir, s3_links["top_grasp_r7"], "top_grasp_r7"))
-            ).unsqueeze(0),
+            ),
         
         if isinstance(top_grasp_r7, tuple):
-            print("top_grasp_r7 is a tuple")
-            print(top_grasp_r7)
+            #print("top_grasp_r7 is a tuple")
+            #print(top_grasp_r7)
             top_grasp_r7 = top_grasp_r7[0]
         
         obj_point_map_reshaped = obj_point_map_unfiltered.reshape(-1, 3)
@@ -204,7 +204,7 @@ class PC_R10_Dataset(torch.utils.data.Dataset):
         
         datum = {
             "obj_point_map_normalized": obj_point_map_normalized,
-            "top_grasp_r10": top_grasp_r10,
+            "top_grasp_r10": top_grasp_r10.unsqueeze(0),
             "obj_center": obj_center,
             "obj_max_dist": obj_max_dist,
         }
