@@ -186,6 +186,8 @@ class PC_R10_Dataset(torch.utils.data.Dataset):
             ).unsqueeze(0),
         
         if isinstance(top_grasp_r7, tuple):
+            print("top_grasp_r7 is a tuple")
+            print(top_grasp_r7)
             top_grasp_r7 = top_grasp_r7[0]
         
         obj_point_map_reshaped = obj_point_map_unfiltered.reshape(-1, 3)
