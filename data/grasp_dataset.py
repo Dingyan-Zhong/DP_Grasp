@@ -185,6 +185,9 @@ class PC_R10_Dataset(torch.utils.data.Dataset):
                 np.load(get_cache_path(self.cache_dir, s3_links["top_grasp_r7"], "top_grasp_r7"))
             ).unsqueeze(0),
         
+        if isinstance(top_grasp_r7, tuple):
+            top_grasp_r7 = top_grasp_r7[0]
+        
         obj_point_map_reshaped = obj_point_map_unfiltered.reshape(-1, 3)
         obj_center = obj_point_map_reshaped.mean(dim=0)
         obj_max_dist = torch.norm(obj_point_map_reshaped - obj_center, dim=1).max()
