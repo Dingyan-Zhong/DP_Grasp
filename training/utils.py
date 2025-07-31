@@ -1,5 +1,8 @@
+import argparse
 import os
 import json
+
+import yaml
 import wandb
 import torch
 import torch.nn as nn
@@ -100,6 +103,7 @@ def save_checkpoint(model: nn.Module,
         'optimizer_state_dict': optimizer.state_dict(),
         'scheduler_state_dict': scheduler.state_dict()
     }
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
     torch.save(state, filepath)
     print(f"Checkpoint saved locally to '{filepath}' at step {step}.")
 
@@ -152,3 +156,35 @@ def load_checkpoint(model: nn.Module,
     except Exception as e:
         print(f"Error loading checkpoint: {e}. Starting from scratch.")
         return 0
+    
+def load_config_from_yaml(config_path: str) -> dict:
+    """Load configuration from YAML file."""
+    with open(config_path, 'r') as f:
+        config_dict = yaml.safe_load(f)
+    
+    # Convert None strings to actual None for optional fields
+    for key in ['wandb_run_id', 'local_wandb_run_file', 'checkpoint_path']:
+        if key in config_dict and config_dict[key] == 'null':
+            config_dict[key] = None
+    
+    return config_dict
+
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='Train ConvUNet for finger grasp')
+    parser.add_argument('--yaml_path', type=str, default='configs/conv_unte_finger_grasp.yaml',
+                       help='Path to YAML config file')
+    
+    # Add command line overrides for common parameters
+    parser.add_argument('--batch_size', type=int, help='Override batch size')
+    parser.add_argument('--learning_rate', type=float, help='Override learning rate')
+    parser.add_argument('--epochs', type=int, help='Override number of epochs')
+    parser.add_argument('--save_interval', type=int, help='Override save interval')
+    parser.add_argument('--save_directory', type=str, help='Override save directory')
+    parser.add_argument('--use_wandb', type=bool, help='Override use wandb')
+    parser.add_argument('--wandb_run_id', type=str, help='Override wandb run id')
+    parser.add_argument('--local_wandb_run_file', type=str, help='Override local wandb run file')
+    parser.add_argument('--checkpoint_path', type=str, help='Override checkpoint path')
+
+    
+    return parser.parse_args()

@@ -7,28 +7,96 @@ import boto3
 import torchvision.transforms as transforms
 
 class RGBD_R7_Dataset(torch.utils.data.Dataset):
-    def __init__(self, s3_path: str, split: str, resize: tuple=(224, 224)):
+    import torch
+import numpy as np
+import pandas as pd
+from io import BytesIO
+import os
+import boto3
+import torchvision.transforms as transforms
+import hashlib
+from pathlib import Path
+
+class RGBD_R7_Dataset(torch.utils.data.Dataset):
+    def __init__(self, s3_path: str, split: str, resize: tuple=(224, 224), cache_dir: str="./data_cache"):
         self.s3_path = s3_path
-        table = pd.read_parquet(self.s3_path)
         self.split = split
-        self.table = table[table["split"] == self.split]
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.resize_transform = transforms.Resize(resize)
+        self.cache_dir = Path(cache_dir)
+        
+        # Create cache directory
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Load the parquet table
+        table = pd.read_parquet(self.s3_path)
+        self.table = table[table["split"] == self.split]
+        
+        # Initialize S3 client
+        self.s3_client = boto3.client('s3')
+        
+        # Pre-download and cache all data
+        print(f"Loading {len(self.table)} samples for {split} split...")
+        self._cache_all_data()
+        print(f"Data caching complete for {split} split!")
+    
+    def _cache_all_data(self):
+        """Download and cache all data files locally."""
+        for idx in tqdm(range(len(self.table)), desc=f"Caching {self.split} data"):
+            s3_links = self.table.iloc[idx]
+            
+            # Cache each file type
+            for file_type in ["obj_depth_map", "obj_rgb", "top_grasp_r7"]:
+                s3_uri = s3_links[file_type]
+                cache_path = self._get_cache_path(s3_uri, file_type)
+                
+                # Only download if not already cached
+                if not cache_path.exists():
+                    self._download_and_cache(s3_uri, cache_path)
+    
+    def _get_cache_path(self, s3_uri: str, file_type: str) -> Path:
+        """Generate a cache file path based on S3 URI."""
+        # Create a hash of the S3 URI to use as filename
+        uri_hash = hashlib.md5(s3_uri.encode()).hexdigest()
+        return self.cache_dir / f"{file_type}_{uri_hash}.npy"
+    
+    def _download_and_cache(self, s3_uri: str, cache_path: Path):
+        """Download a file from S3 and cache it locally."""
+        try:
+            bucket, key = s3_uri[len("s3://") :].split("/", maxsplit=1)
+            buffer = BytesIO()
+            self.s3_client.download_fileobj(bucket, key, buffer)
+            buffer.seek(0)
+            
+            # Load and save the numpy array
+            data = np.load(buffer)
+            np.save(cache_path, data)
+        except Exception as e:
+            print(f"Error downloading {s3_uri}: {e}")
+            raise
     
     def __len__(self):
         return len(self.table)
 
     def __getitem__(self, idx):
         s3_links = self.table.iloc[idx]
-
-        # load the data from s3
-        s3_client = boto3.client('s3')
+        
+        # Load data from local cache
         datum = {
-            "obj_depth_map": self.resize_transform(torch.from_numpy(load_np_s3(s3_links["obj_depth_map"], s3_client)).unsqueeze(0)),
-            "obj_rgb": self.resize_transform(torch.from_numpy(load_np_s3(s3_links["obj_rgb"], s3_client))),
-            "top_grasp_r7": torch.from_numpy(load_np_s3(s3_links["top_grasp_r7"], s3_client)).unsqueeze(0),
+            "obj_depth_map": self.resize_transform(
+                torch.from_numpy(
+                    np.load(self._get_cache_path(s3_links["obj_depth_map"], "obj_depth_map"))
+                ).unsqueeze(0)
+            ),
+            "obj_rgb": self.resize_transform(
+                torch.from_numpy(
+                    np.load(self._get_cache_path(s3_links["obj_rgb"], "obj_rgb"))
+                )
+            ),
+            "top_grasp_r7": torch.from_numpy(
+                np.load(self._get_cache_path(s3_links["top_grasp_r7"], "top_grasp_r7"))
+            ).unsqueeze(0),
         }
-
+        
         return datum
     
 

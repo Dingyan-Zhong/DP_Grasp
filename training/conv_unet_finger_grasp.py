@@ -1,6 +1,7 @@
 from typing import Optional
 import attr
 import datetime
+from training.utils import load_config_from_yaml, parse_args
 import wandb
 import numpy as np
 import torch
@@ -174,21 +175,29 @@ def main(config: ConvUnetTrainingConfig):
 
 
 if __name__ == "__main__":
-    config = ConvUnetTrainingConfig(
-        dataset_path="s3://covariant-datasets-prod/dp_finger_grasp_dataset_small_test_2025_07_24_09_40",
-        project_name="conv_unet_finger_grasp",
-        learning_rate=1e-4,
-        num_warmup_steps=100,
-        ema_power=0.75,
-        batch_size=32,
-        save_interval=100,
-        save_directory="/home/ubuntu/DP_grasp/checkpoints",
-        epochs=1000,
-        wandb_run_id=None,
-        local_wandb_run_file=None,
-        checkpoint_path=None,
-        use_wandb=True,
-    )
+    args = parse_args()
+    config_dict = load_config_from_yaml(args.yaml_path)
+
+    # Override with command line arguments if provided
+    if args.batch_size is not None:
+        config_dict['batch_size'] = args.batch_size
+    if args.learning_rate is not None:
+        config_dict['learning_rate'] = args.learning_rate
+    if args.epochs is not None:
+        config_dict['epochs'] = args.epochs
+    if args.save_directory is not None:
+        config_dict['save_directory'] = args.save_directory
+    if args.use_wandb is not None:
+        config_dict['use_wandb'] = args.use_wandb
+    if args.wandb_run_id is not None:
+        config_dict['wandb_run_id'] = args.wandb_run_id
+    if args.local_wandb_run_file is not None:
+        config_dict['local_wandb_run_file'] = args.local_wandb_run_file
+    if args.checkpoint_path is not None:
+        config_dict['checkpoint_path'] = args.checkpoint_path
+    
+    # Create config object
+    config = ConvUnetTrainingConfig(**config_dict)
 
     main(config)
 
