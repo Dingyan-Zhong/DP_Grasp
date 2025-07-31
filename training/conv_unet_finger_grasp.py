@@ -19,17 +19,17 @@ from DP_Grasp.training.utils import load_config_from_yaml, parse_args
 class ConvUnetTrainingConfig:
     dataset_path: str = attr.ib()
     project_name: str = attr.ib()
-    learning_rate: float = attr.ib()
-    num_warmup_steps: int = attr.ib()
-    ema_power: float = attr.ib()
-    batch_size: int = attr.ib()
-    save_interval: int = attr.ib()
+    learning_rate: float = attr.ib(converter=float)
+    num_warmup_steps: int = attr.ib(converter=int)
+    ema_power: float = attr.ib(converter=float)
+    batch_size: int = attr.ib(converter=int)
+    save_interval: int = attr.ib(converter=int)
     save_directory: str = attr.ib()
-    epochs: int = attr.ib()
+    epochs: int = attr.ib(converter=int)
     wandb_run_id: Optional[str] = attr.ib()
     local_wandb_run_file: Optional[str] = attr.ib()
     checkpoint_path: Optional[str] = attr.ib()
-    use_wandb: bool = attr.ib()
+    use_wandb: bool = attr.ib(converter=bool)
 
 
 def train_epoch(

@@ -14,7 +14,7 @@ class RGBD_R7_Dataset(torch.utils.data.Dataset):
         self.s3_path = s3_path
         self.split = split
         self.resize_transform = transforms.Resize(resize)
-        self.cache_dir = Path(cache_dir)
+        self.cache_dir = Path(cache_dir+f"/{s3_path.split('/')[-1]}/{split}")
         
         # Create cache directory
         self.cache_dir.mkdir(parents=True, exist_ok=True)
