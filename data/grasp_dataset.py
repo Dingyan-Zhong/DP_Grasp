@@ -156,7 +156,7 @@ class PC_R10_Dataset(torch.utils.data.Dataset):
             s3_links = self.table.iloc[idx]
             
             # Cache each file type
-            for file_type in ["obj_point_map_unfiltered", "top_grasp_r10"]:
+            for file_type in ["obj_point_map_unfiltered", "top_grasp_r7"]:
                 s3_uri = s3_links[file_type]
                 cache_path = get_cache_path(self.cache_dir, s3_uri, file_type)
                 
