@@ -188,6 +188,8 @@ if __name__ == "__main__":
         config_dict['epochs'] = args.epochs
     if args.save_directory is not None:
         config_dict['save_directory'] = args.save_directory
+    if args.save_interval is not None:
+        config_dict['save_interval'] = args.save_interval
     if args.use_wandb is not None:
         config_dict['use_wandb'] = args.use_wandb
     if args.wandb_run_id is not None:

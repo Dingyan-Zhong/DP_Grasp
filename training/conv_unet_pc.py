@@ -10,7 +10,7 @@ from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
 from tqdm.auto import tqdm
 from DP_Grasp.training.utils import get_channel_fusion_module, get_resnet, load_checkpoint, replace_bn_with_gn, save_checkpoint
-from DP_Grasp.data.grasp_dataset import PC_R7_Dataset
+from DP_Grasp.data.grasp_dataset import PC_R10_Dataset
 from DP_Grasp.model.conv_unet import ConditionalUnet1D
 from DP_Grasp.training.utils import load_config_from_yaml, parse_args
 
@@ -47,8 +47,8 @@ def train_epoch(
     epoch_loss = []
 
     for batch in train_loader:
-        point_map = batch['obj_point_map_unfiltered'].to(device)
-        top_grasp = batch['top_grasp_r7'].to(device)
+        point_map = batch['obj_point_map_normalized'].to(device)
+        top_grasp = batch['top_grasp_r10'].to(device)
 
         if is_train:
             optimizer.zero_grad()
@@ -87,8 +87,8 @@ def main(config: ConvUnetTrainingConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     start_time = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
-    train_dataset = PC_R7_Dataset(config.dataset_path, split="train")
-    val_dataset = PC_R7_Dataset(config.dataset_path, split="val")
+    train_dataset = PC_R10_Dataset(config.dataset_path, split="train")
+    val_dataset = PC_R10_Dataset(config.dataset_path, split="val")
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
@@ -165,11 +165,11 @@ def main(config: ConvUnetTrainingConfig):
 
             if config.save_interval is not None:
                 if (epoch + 1) % config.save_interval == 0:
-                    save_checkpoint(model, ema_model, optimizer, lr_scheduler, epoch, config.save_directory+f"/{config.project_name}_{start_time}_{epoch}_epoch.pth", config.use_wandb, attr.asdict(config))
+                    save_checkpoint(model, ema_model, optimizer, lr_scheduler, epoch, config.save_directory+f"/{config.project_name}_{start_time}/{epoch}_epoch.pth", config.use_wandb, attr.asdict(config))
         
             tglobal.set_postfix(train_loss=train_loss, val_loss=val_loss)
 
-        save_checkpoint(model, ema_model, optimizer, lr_scheduler, config.epochs, config.save_directory+f"/{config.project_name}_{start_time}_{config.epochs}_epoch.pth", config.use_wandb, attr.asdict(config))
+        save_checkpoint(model, ema_model, optimizer, lr_scheduler, config.epochs, config.save_directory+f"/{config.project_name}_{start_time}/{config.epochs}_epoch.pth", config.use_wandb, attr.asdict(config))
 
         print(f"Training complete. Saved checkpoint to {config.save_directory}")
 
@@ -187,6 +187,8 @@ if __name__ == "__main__":
         config_dict['epochs'] = args.epochs
     if args.save_directory is not None:
         config_dict['save_directory'] = args.save_directory
+    if args.save_interval is not None:
+        config_dict['save_interval'] = args.save_interval
     if args.use_wandb is not None:
         config_dict['use_wandb'] = args.use_wandb
     if args.wandb_run_id is not None:
