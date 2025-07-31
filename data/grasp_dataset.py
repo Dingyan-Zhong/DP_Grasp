@@ -5,20 +5,12 @@ from io import BytesIO
 import os
 import boto3
 import torchvision.transforms as transforms
-
-class RGBD_R7_Dataset(torch.utils.data.Dataset):
-    import torch
-import numpy as np
-import pandas as pd
-from io import BytesIO
-import os
-import boto3
-import torchvision.transforms as transforms
 import hashlib
 from pathlib import Path
+from tqdm.auto import tqdm
 
 class RGBD_R7_Dataset(torch.utils.data.Dataset):
-    def __init__(self, s3_path: str, split: str, resize: tuple=(224, 224), cache_dir: str="./data_cache"):
+    def __init__(self, s3_path: str, split: str, resize: tuple=(224, 224), cache_dir: str="/home/ubuntu/data_cache"):
         self.s3_path = s3_path
         self.split = split
         self.resize_transform = transforms.Resize(resize)

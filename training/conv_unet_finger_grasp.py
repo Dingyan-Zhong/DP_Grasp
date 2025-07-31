@@ -1,7 +1,6 @@
 from typing import Optional
 import attr
 import datetime
-from training.utils import load_config_from_yaml, parse_args
 import wandb
 import numpy as np
 import torch
@@ -13,6 +12,7 @@ from tqdm.auto import tqdm
 from DP_Grasp.training.utils import get_channel_fusion_module, get_resnet, load_checkpoint, replace_bn_with_gn, save_checkpoint
 from DP_Grasp.data.grasp_dataset import RGBD_R7_Dataset
 from DP_Grasp.model.conv_unet import ConditionalUnet1D
+from DP_Grasp.training.utils import load_config_from_yaml, parse_args
 
 
 @attr.s
