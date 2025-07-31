@@ -177,6 +177,15 @@ class PC_R10_Dataset(torch.utils.data.Dataset):
                     np.load(get_cache_path(self.cache_dir, s3_links["obj_point_map_unfiltered"], "obj_point_map_unfiltered"))
                 )
             ),
+        print("obj_point_map_unfiltered", obj_point_map_unfiltered)
+        if isinstance(obj_point_map_unfiltered, torch.Tensor):
+            print("obj_point_map_unfiltered is a tensor")
+            print(obj_point_map_unfiltered.shape)
+            #print(obj_point_map_unfiltered.dtype)
+        else:
+            print("obj_point_map_unfiltered is not a tensor")
+            print(type(obj_point_map_unfiltered))
+            
         top_grasp_r7 = torch.from_numpy(
                 np.load(get_cache_path(self.cache_dir, s3_links["top_grasp_r7"], "top_grasp_r7"))
             ).unsqueeze(0),
