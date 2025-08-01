@@ -193,7 +193,7 @@ class PC_R10_Dataset(torch.utils.data.Dataset):
         obj_point_map_reshaped = obj_point_map_unfiltered.reshape(-1, 3)
         obj_center = obj_point_map_reshaped.mean(dim=0)
         obj_max_dist = torch.norm(obj_point_map_reshaped - obj_center, dim=1).max()
-        obj_point_map_normalized = (obj_point_map_unfiltered - obj_center) / obj_max_dist
+        obj_point_map_normalized = (obj_point_map_unfiltered - obj_center.view(3, 1, 1)) / obj_max_dist
 
         top_grasp_r10 = torch.zeros(10)
         top_grasp_r10[:3] = (top_grasp_r7[:3]-obj_center) / obj_max_dist
