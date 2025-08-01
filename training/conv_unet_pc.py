@@ -97,7 +97,7 @@ def main(config: ConvUnetTrainingConfig):
     vision_encoder = get_resnet('resnet18').to(device)
     vision_encoder = replace_bn_with_gn(vision_encoder)
 
-    noise_pred_net = ConditionalUnet1D(input_dim=7, global_cond_dim=512).to(device)
+    noise_pred_net = ConditionalUnet1D(input_dim=10, global_cond_dim=512).to(device)
 
     model = nn.ModuleDict({
         'vision_encoder': vision_encoder.to(device),
