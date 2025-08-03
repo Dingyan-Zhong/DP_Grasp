@@ -1,0 +1,22 @@
+# Dataset configuration
+dataset_path: "s3://covariant-datasets-prod/dp_finger_grasp_dataset_small_test_2025_07_24_09_40"
+batch_size: 32
+
+# Training parameters
+learning_rate: 1e-4
+num_warmup_steps: 100
+ema_power: 0.75
+epochs: 1000
+
+# Saving and logging
+save_interval: 100
+save_directory: "/home/ubuntu/checkpoints/DP_Grasp"
+project_name: "conv_unet_finger_grasp"
+
+# Wandb configuration
+use_wandb: true
+wandb_run_id: null
+local_wandb_run_file: null
+
+# Checkpointing
+checkpoint_path: null
