@@ -88,8 +88,8 @@ def train_epoch(
             top_pos_normalized = top_grasp_r9[:, :, :3].reshape(-1, 3)
             pred_pos_normalized = noise_pred[:, :, :3].reshape(-1, 3)
 
-            top_pos = top_pos_normalized * ob_max_dist + ob_center
-            pred_pos = pred_pos_normalized * ob_max_dist + ob_center
+            top_pos = top_pos_normalized * ob_max_dist.unsqueeze(1) + ob_center
+            pred_pos = pred_pos_normalized * ob_max_dist.unsqueeze(1) + ob_center
 
             top_pos_pred_dist = torch.norm(top_pos - pred_pos, dim=1)
             top_pos_pred_dist_loss = nn.functional.mse_loss(top_pos_pred_dist, torch.zeros_like(top_pos_pred_dist))
