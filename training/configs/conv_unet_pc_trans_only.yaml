@@ -1,5 +1,5 @@
 # Dataset configuration
-dataset_path: "s3://covariant-datasets-prod/dp_finger_grasp_dataset_small_test_2025_07_24_09_40"
+dataset_path: "s3://covariant-datasets-prod/dp_finger_grasp_dataset_test_2025_07_31_06_00"
 batch_size: 32
 
 # Training parameters
