@@ -72,7 +72,7 @@ def transform_and_visualize_predicted_grasp(predicted_grasp, label_grasp, obj_ma
     vec_7d = np.append(np.concatenate([xyz, rot_vec], axis=0), [0.07])
 
     img = draw_top_grasp_point(vec_7d, rgb, cam_intrinsics, color = 'blue')
-    img = draw_top_grasp_point(label_grasp, np.array(rgb).transpose(2,0,1)/255.0, cam_intrinsics, color = 'red')
+    img = draw_top_grasp_point(label_grasp, np.array(img).transpose(2,0,1)/255.0, cam_intrinsics, color = 'red')
     return img
 
 
