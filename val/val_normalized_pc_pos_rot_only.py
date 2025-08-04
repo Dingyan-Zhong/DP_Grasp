@@ -250,9 +250,9 @@ def main(checkpoints_dir, data_dir, save_dir):
 
         obj_point_map = torch.from_numpy(load_np_s3(datum['obj_point_map_unfiltered'], s3_client)).to(device)
         cam_intrinsics = torch.from_numpy(load_np_s3(datum['reference_camera_intrinsics'], s3_client)).to(device)
-        image = datum['image']
-        bbox = datum['obj_bbox']
-        top_grasp_r7 = datum['top_grasp_r7']
+        image = load_np_s3(datum['image'], s3_client)
+        bbox = load_np_s3(datum['obj_bbox'], s3_client)
+        top_grasp_r7 = load_np_s3(datum['top_grasp_r7'], s3_client)
 
         obj_point_map_reshaped = obj_point_map.reshape(-1, 3)
         obj_center = obj_point_map_reshaped.mean(dim=0)
