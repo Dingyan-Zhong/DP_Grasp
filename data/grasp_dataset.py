@@ -9,7 +9,7 @@ import hashlib
 from pathlib import Path
 from tqdm.auto import tqdm
 from pytorch3d.transforms import axis_angle_to_matrix
-from DP_Grasp.data.preprocessing_utils import download_and_cache, get_cache_path
+from data.preprocessing_utils import download_and_cache, get_cache_path
 
 class RGBD_R7_Dataset(torch.utils.data.Dataset):
     def __init__(self, s3_path: str, split: str, resize: tuple=(224, 224), cache_dir: str="/home/ubuntu/data_cache"):
