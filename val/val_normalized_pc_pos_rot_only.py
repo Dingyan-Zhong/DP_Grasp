@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from scipy.spatial.transform import Rotation as R
 from diffusers.schedulers.scheduling_ddim import DDIMScheduler
+from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
 import boto3
@@ -20,10 +21,10 @@ from model.conv_unet import ConditionalUnet1D
 
 
 
-def predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_normalized, output_dim, device):
+def predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_normalized, output_dim, device, use_ddpm):
 
     B = 1
-    num_diffusion_iters = 100   
+    num_diffusion_iters = 1000 if use_ddpm else 100   
     with torch.no_grad():
         # get image features
         #image_features = ema['vision_encoder'](nimages)
@@ -205,7 +206,8 @@ def create_image_grid_pil_centered(images: List[np.ndarray],
 @click.option('--checkpoints_dir', type=str, required=True)
 @click.option('--data_dir', type=str, required=True)
 @click.option('--save_dir', type=str, required=True)
-def main(checkpoints_dir, data_dir, save_dir):
+@click.option('--use_ddpm', type=bool, default=False)
+def main(checkpoints_dir, data_dir, save_dir, use_ddpm):
     s3_client = boto3.client('s3')
     #os.makedirs(save_dir, exist_ok=True)
 
@@ -214,16 +216,28 @@ def main(checkpoints_dir, data_dir, save_dir):
     vision_encoder = get_resnet('resnet18').to(device)
     vision_encoder = replace_bn_with_gn(vision_encoder)
     
-    noise_scheduler = DDIMScheduler(
-        num_train_timesteps=1000,
-        # the choise of beta schedule has big impact on performance
-        # we found squared cosine works the best
-        beta_schedule='squaredcos_cap_v2',
-        # clip output to [-1,1] to improve stability
-        clip_sample=True,
-        # our network predicts noise (instead of denoised action)
-        prediction_type='epsilon'
-    )
+    if use_ddpm:
+        noise_scheduler = DDPMScheduler(
+            num_train_timesteps=1000,
+            # the choise of beta schedule has big impact on performance
+            # we found squared cosine works the best
+            beta_schedule='squaredcos_cap_v2',
+            # clip output to [-1,1] to improve stability
+            clip_sample=True,
+            # our network predicts noise (instead of denoised action)
+            prediction_type='epsilon'
+        )
+    else:
+        noise_scheduler = DDIMScheduler(
+            num_train_timesteps=1000,
+            # the choise of beta schedule has big impact on performance
+            # we found squared cosine works the best
+            beta_schedule='squaredcos_cap_v2',
+            # clip output to [-1,1] to improve stability
+            clip_sample=True,
+            # our network predicts noise (instead of denoised action)
+            prediction_type='epsilon'
+        )
 
     noise_pred_net = ConditionalUnet1D(
         input_dim=9,
@@ -274,7 +288,7 @@ def main(checkpoints_dir, data_dir, save_dir):
         obj_max_dist = torch.norm(obj_point_map_reshaped - obj_center, dim=1).max()
         obj_point_map_normalized = (obj_point_map - obj_center.view(3, 1, 1)) / obj_max_dist
 
-        predicted_grasp = predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_normalized, 9, device)[0,0,:]
+        predicted_grasp = predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_normalized, 9, device, use_ddpm)[0,0,:]
 
         img = transform_and_visualize_predicted_grasp(predicted_grasp, top_grasp_r7, obj_max_dist, obj_center, cam_intrinsics, image)
 
