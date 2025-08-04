@@ -67,7 +67,7 @@ def transform_and_visualize_predicted_grasp(predicted_grasp, label_grasp, obj_ma
     xyz = (predicted_grasp[:3])*obj_max_dist.item()+obj_center.cpu().numpy()
     rot = predicted_grasp[3:9].reshape(2,3)
     rot = gram_schmidt(rot[0], rot[1])
-    rot = np.concatenate([np.cross(rot[0], rot[1]), rot], axis=0)
+    rot = np.concatenate([np.cross(rot[0], rot[1])[None,:], rot], axis=0)
     rot_vec = R.from_matrix(rot).as_rotvec()
     vec_7d = np.append(np.concatenate([xyz, rot_vec], axis=0), [0.07])
 
