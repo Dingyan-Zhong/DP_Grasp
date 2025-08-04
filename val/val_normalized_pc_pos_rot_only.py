@@ -218,8 +218,8 @@ def main(checkpoints_dir, data_dir, save_dir):
     noise_pred_net.to(device)
 
     nets = nn.ModuleDict({
-        'vision_encoder': vision_encoder,
-        'noise_pred_net': noise_pred_net
+        'vision_encoder': vision_encoder.to(device),
+        'noise_pred_net': noise_pred_net.to(device)
     })
     
     ema = EMAModel(
