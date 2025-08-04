@@ -10,8 +10,10 @@ from scipy.spatial.transform import Rotation as R
 from diffusers.schedulers.scheduling_ddim import DDIMScheduler
 from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
+import boto3
 import click
 from viz.grasp_viz import draw_top_grasp_point
+from data.grasp_dataset import load_np_s3
 from training.utils import load_checkpoint
 from training.utils import get_channel_fusion_module, get_resnet, replace_bn_with_gn
 from model.conv_unet import ConditionalUnet1D
@@ -189,7 +191,7 @@ def create_image_grid_pil(images: List[np.ndarray],
 @click.option('--data_dir', type=str, required=True)
 @click.option('--save_dir', type=str, required=True)
 def main(checkpoints_dir, data_dir, save_dir):
-
+    s3_client = boto3.client('s3')
     #os.makedirs(save_dir, exist_ok=True)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -246,8 +248,8 @@ def main(checkpoints_dir, data_dir, save_dir):
     for i in range(len(df)):
         datum = df.iloc[i]
 
-        obj_point_map = torch.from_numpy(datum['obj_point_map_unfiltered']).to(device)
-        cam_intrinsics = torch.from_numpy(datum['reference_camera_intrinsics']).to(device)
+        obj_point_map = torch.from_numpy(load_np_s3(datum['obj_point_map_unfiltered'], s3_client)).to(device)
+        cam_intrinsics = torch.from_numpy(load_np_s3(datum['reference_camera_intrinsics'], s3_client)).to(device)
         image = datum['image']
         bbox = datum['obj_bbox']
         top_grasp_r7 = datum['top_grasp_r7']
