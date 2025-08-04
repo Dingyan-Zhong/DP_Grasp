@@ -357,10 +357,16 @@ def main(data_dir, save_dir, filename_prefix):
         session_id = datum['session_id']
 
         grasp_img = draw_top_grasp_point(top_grasp_r7, image, camera_intrinsics, color = 'red')
-        img_list.append(np.array(grasp_img))
+        x_min, y_min, x_max, y_max = bbox
+        grasp_img = np.array(grasp_img)[y_min:y_max, x_min:x_max, :]
+        img_list.append(grasp_img)
         name_list.append(session_id)
 
     saved_files = create_interactive_image_grid_html(img_list, name_list, save_dir, filename_prefix=filename_prefix)
+
+
+if __name__ == '__main__':
+    main()
     
 
 
