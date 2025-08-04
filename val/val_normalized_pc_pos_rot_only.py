@@ -259,7 +259,7 @@ def main(checkpoints_dir, data_dir, save_dir):
         obj_max_dist = torch.norm(obj_point_map_reshaped - obj_center, dim=1).max()
         obj_point_map_normalized = (obj_point_map - obj_center.view(3, 1, 1)) / obj_max_dist
 
-        predicted_grasp = predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_normalized, 9, device)
+        predicted_grasp = predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_normalized, 9, device)[0,0,:]
 
         img = transform_and_visualize_predicted_grasp(predicted_grasp, top_grasp_r7, obj_max_dist, obj_center, cam_intrinsics, image)
 
