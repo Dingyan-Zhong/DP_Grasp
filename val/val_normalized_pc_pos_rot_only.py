@@ -89,16 +89,16 @@ def gram_schmidt(v1, v2):
     
     return np.stack([u1,u2])
 
-def create_image_grid_pil(images: List[np.ndarray], 
-                         images_per_row: int = 4,
-                         max_images_per_picture: int = 16,
-                         save_dir: str = "output",
-                         filename_prefix: str = "image_grid",
-                         image_size: Tuple[int, int] = (256, 256),
-                         spacing: int = 10,
-                         background_color: str = "white") -> List[str]:
+def create_image_grid_pil_centered(images: List[np.ndarray], 
+                                  images_per_row: int = 4,
+                                  max_images_per_picture: int = 32,
+                                  save_dir: str = "output",
+                                  filename_prefix: str = "image_grid",
+                                  spacing: int = 20,
+                                  background_color: str = "white") -> List[str]:
     """
-    Create and save big pictures using PIL (Pillow) for better memory efficiency.
+    Create and save big pictures using PIL without scaling images.
+    Centers images within their grid cells for better visual alignment.
     
     Args:
         images: List of numpy arrays representing images (H, W, C) or (H, W)
@@ -106,8 +106,7 @@ def create_image_grid_pil(images: List[np.ndarray],
         max_images_per_picture: Maximum number of images per big picture
         save_dir: Directory to save the output images
         filename_prefix: Prefix for the saved image files
-        image_size: Size to resize each image to (width, height)
-        spacing: Spacing between images in pixels
+        spacing: Spacing between images in pixels (both horizontal and vertical)
         background_color: Background color for the grid
     
     Returns:
@@ -135,9 +134,21 @@ def create_image_grid_pil(images: List[np.ndarray],
         # Calculate grid dimensions
         num_rows = (num_images_in_picture + images_per_row - 1) // images_per_row
         
+        # Find maximum dimensions for consistent grid cells
+        max_width = 0
+        max_height = 0
+        
+        for img_array in picture_images:
+            if len(img_array.shape) == 3:
+                height, width = img_array.shape[:2]
+            else:
+                height, width = img_array.shape
+            max_width = max(max_width, width)
+            max_height = max(max_height, height)
+        
         # Calculate big picture dimensions
-        big_width = images_per_row * image_size[0] + (images_per_row - 1) * spacing
-        big_height = num_rows * image_size[1] + (num_rows - 1) * spacing
+        big_width = images_per_row * max_width + (images_per_row - 1) * spacing
+        big_height = num_rows * max_height + (num_rows - 1) * spacing
         
         # Create big picture
         big_image = Image.new('RGB', (big_width, big_height), background_color)
@@ -162,15 +173,19 @@ def create_image_grid_pil(images: List[np.ndarray],
                 else:
                     pil_img = Image.fromarray(img_array, mode='L').convert('RGB')
             
-            # Resize image
-            pil_img = pil_img.resize(image_size, Image.Resampling.LANCZOS)
-            
-            # Calculate position
+            # Calculate position (center the image in its grid cell)
             row = i // images_per_row
             col = i % images_per_row
             
-            x = col * (image_size[0] + spacing)
-            y = row * (image_size[1] + spacing)
+            # Get current image dimensions
+            img_width, img_height = pil_img.size
+            
+            # Calculate centering offsets
+            x_offset = (max_width - img_width) // 2
+            y_offset = (max_height - img_height) // 2
+            
+            x = col * (max_width + spacing) + x_offset
+            y = row * (max_height + spacing) + y_offset
             
             # Paste image
             big_image.paste(pil_img, (x, y))
@@ -268,7 +283,7 @@ def main(checkpoints_dir, data_dir, save_dir):
 
         img_list.append(img)
 
-    saved_files = create_image_grid_pil(img_list, save_dir=save_dir)
+    saved_files = create_image_grid_pil_centered(img_list, save_dir=save_dir)
 
 
 if __name__ == '__main__':
