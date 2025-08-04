@@ -257,12 +257,10 @@ class PC_R9_Trans_Only_Dataset(torch.utils.data.Dataset):
         s3_links = self.table.iloc[idx]
         
         # Load data from local cache
-        obj_point_map_unfiltered = self.resize_transform(
-                torch.from_numpy(
+        obj_point_map_unfiltered = torch.from_numpy(
                     np.load(get_cache_path(self.cache_dir, s3_links["obj_point_map_unfiltered"], "obj_point_map_unfiltered"))
                 )
-            ),
-        
+
         if isinstance(obj_point_map_unfiltered, tuple):
             obj_point_map_unfiltered = obj_point_map_unfiltered[0]
         
@@ -287,7 +285,7 @@ class PC_R9_Trans_Only_Dataset(torch.utils.data.Dataset):
         top_grasp_r9[6:9] = rot_matrix[2, :]
         
         datum = {
-            "obj_point_map_normalized": obj_point_map_normalized,
+            "obj_point_map_normalized": self.resize_transform(obj_point_map_normalized),
             "top_grasp_r9": top_grasp_r9.unsqueeze(0),
             "obj_center": obj_center,
             "obj_max_dist": obj_max_dist,
