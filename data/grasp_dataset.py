@@ -10,6 +10,7 @@ from pathlib import Path
 from tqdm.auto import tqdm
 from pytorch3d.transforms import axis_angle_to_matrix
 from data.preprocessing_utils import download_and_cache, get_cache_path
+from data.black_list import SESSION_BLACK_LIST, SESSION_GREY_LIST
 
 class RGBD_R7_Dataset(torch.utils.data.Dataset):
     def __init__(self, s3_path: str, split: str, resize: tuple=(224, 224), cache_dir: str="/home/ubuntu/data_cache"):
@@ -223,6 +224,7 @@ class PC_R9_Trans_Only_Dataset(torch.utils.data.Dataset):
         
         # Load the parquet table
         table = pd.read_parquet(self.s3_path)
+        table = table[~table["session_id"].isin(SESSION_BLACK_LIST+SESSION_GREY_LIST)]
         self.table = table[table["split"] == self.split]
         
         # Initialize S3 client
