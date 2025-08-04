@@ -1,4 +1,5 @@
 import numpy as np
+import click
 import base64
 from io import BytesIO
 from PIL import Image
@@ -342,7 +343,7 @@ def create_interactive_image_grid_html(images: List[np.ndarray],
 @click.option('--save_dir', type=str, required=True)
 @click.option('--filename_prefix', type=str, required=True)
 def main(data_dir, save_dir, filename_prefix):
-    
+
     df = pd.read_parquet(data_dir)
     s3_client = boto3.client('s3')
     img_list = []
