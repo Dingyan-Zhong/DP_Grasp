@@ -309,7 +309,7 @@ def main(checkpoints_dir, data_dir, save_dir, use_ddpm, inference_output_batch_s
             num_grasp_to_visualize = 1
 
         img = image
-        img = transform_and_visualize_predicted_grasp(predicted_grasp[:num_grasp_to_visualize], top_grasp_r7, obj_max_dist, obj_center, cam_intrinsics, image, num_grasp_to_visualize)
+        img = transform_and_visualize_predicted_grasp(predicted_grasp[:num_grasp_to_visualize], top_grasp_r7, obj_max_dist, obj_center, cam_intrinsics, image)
 
         x_min, y_min, x_max, y_max = bbox
         img = np.array(img)[y_min:y_max, x_min:x_max, :]
