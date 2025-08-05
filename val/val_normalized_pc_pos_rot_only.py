@@ -35,7 +35,7 @@ def predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_norm
         #obs_features = torch.cat([image_features, nagent_poses], dim=-1)
 
         # reshape observation to (B,obs_horizon*obs_dim)
-        obs_cond = nets['vision_encoder'](obj_point_map_normalized.expand(B, -1))
+        obs_cond = nets['vision_encoder'](obj_point_map_normalized.unsqueeze(0)).expand(B, -1)
 
         # initialize action from Guassian noise
         noisy_action = torch.randn(
