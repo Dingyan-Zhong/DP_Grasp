@@ -274,7 +274,7 @@ def main(checkpoints_dir, data_dir, save_dir, use_ddpm, split):
 
     df = pd.read_parquet(data_dir)
     df = df[df['split'] == split]
-    df = df[~df['session'].isin(SESSION_BLACK_LIST+SESSION_GREY_LIST)]
+    df = df[~df['session_id'].isin(SESSION_BLACK_LIST+SESSION_GREY_LIST)]
 
     img_list = []
     for i in range(len(df)):
