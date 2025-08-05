@@ -18,6 +18,7 @@ from data.grasp_dataset import load_np_s3
 from training.utils import load_checkpoint
 from training.utils import get_channel_fusion_module, get_resnet, replace_bn_with_gn
 from model.conv_unet import ConditionalUnet1D
+from data.black_list import SESSION_BLACK_LIST, SESSION_GREY_LIST
 
 
 
@@ -272,6 +273,7 @@ def main(checkpoints_dir, data_dir, save_dir, use_ddpm):
 
     df = pd.read_parquet(data_dir)
     df = df[df['split'] == 'val']
+    df = df[~df['session'].isin(SESSION_BLACK_LIST+SESSION_GREY_LIST)]
 
     img_list = []
     for i in range(len(df)):
