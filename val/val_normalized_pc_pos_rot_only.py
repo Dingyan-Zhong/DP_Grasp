@@ -208,7 +208,8 @@ def create_image_grid_pil_centered(images: List[np.ndarray],
 @click.option('--data_dir', type=str, required=True)
 @click.option('--save_dir', type=str, required=True)
 @click.option('--use_ddpm', type=bool, default=False)
-def main(checkpoints_dir, data_dir, save_dir, use_ddpm):
+@click.option('--split', type=str, default='val')
+def main(checkpoints_dir, data_dir, save_dir, use_ddpm, split):
     s3_client = boto3.client('s3')
     #os.makedirs(save_dir, exist_ok=True)
 
@@ -272,7 +273,7 @@ def main(checkpoints_dir, data_dir, save_dir, use_ddpm):
     nets.eval()
 
     df = pd.read_parquet(data_dir)
-    df = df[df['split'] == 'val']
+    df = df[df['split'] == split]
     df = df[~df['session'].isin(SESSION_BLACK_LIST+SESSION_GREY_LIST)]
 
     img_list = []
