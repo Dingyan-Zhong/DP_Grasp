@@ -22,9 +22,9 @@ from data.black_list import SESSION_BLACK_LIST, SESSION_GREY_LIST
 
 
 
-def predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_normalized, output_dim, device, use_ddpm):
+def predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_normalized, output_dim, device, use_ddpm, inference_output_batch_size):
 
-    B = 1
+    B = inference_output_batch_size
     num_diffusion_iters = 1000 if use_ddpm else 100   
     with torch.no_grad():
         # get image features
@@ -35,7 +35,7 @@ def predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_norm
         #obs_features = torch.cat([image_features, nagent_poses], dim=-1)
 
         # reshape observation to (B,obs_horizon*obs_dim)
-        obs_cond = nets['vision_encoder'](obj_point_map_normalized.unsqueeze(0))
+        obs_cond = nets['vision_encoder'](obj_point_map_normalized.expand(B, -1))
 
         # initialize action from Guassian noise
         noisy_action = torch.randn(
@@ -66,15 +66,23 @@ def predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_norm
 
 
 def transform_and_visualize_predicted_grasp(predicted_grasp, label_grasp, obj_max_dist, obj_center, cam_intrinsics, rgb):
-    xyz = (predicted_grasp[:3])*obj_max_dist.item()+obj_center.cpu().numpy()
-    rot = predicted_grasp[3:9].reshape(2,3)
-    rot = gram_schmidt(rot[0], rot[1])
-    rot = np.concatenate([np.cross(rot[0], rot[1])[None,:], rot], axis=0)
-    rot_vec = R.from_matrix(rot).as_rotvec()
-    vec_7d = np.append(np.concatenate([xyz, rot_vec], axis=0), [0.07])
+    # TODO: Vectorize this
+    batch_vec_7d = []
+    for grasp in predicted_grasp:
+        xyz = (grasp[:3])*obj_max_dist.item()+obj_center.cpu().numpy()
+        rot = grasp[3:9].reshape(2,3)
+        rot = gram_schmidt(rot[0], rot[1])
+        rot = np.concatenate([np.cross(rot[0], rot[1])[None,:], rot], axis=0)
+        rot_vec = R.from_matrix(rot).as_rotvec()
+        vec_7d = np.append(np.concatenate([xyz, rot_vec], axis=0), [0.07])
+        batch_vec_7d.append(vec_7d)
 
-    img = draw_top_grasp_point(vec_7d, rgb, cam_intrinsics, color = 'blue')
-    img = draw_top_grasp_point(label_grasp, np.array(img).transpose(2,0,1)/255.0, cam_intrinsics, color = 'red')
+    batch_vec_7d = np.stack(batch_vec_7d)
+
+    img = rgb
+    for grasp in batch_vec_7d:
+        img = draw_top_grasp_point(grasp, img, cam_intrinsics, color = 'blue')
+    img = draw_top_grasp_point(label_grasp, img, cam_intrinsics, color = 'red')
     return img
 
 
@@ -208,8 +216,10 @@ def create_image_grid_pil_centered(images: List[np.ndarray],
 @click.option('--data_dir', type=str, required=True)
 @click.option('--save_dir', type=str, required=True)
 @click.option('--use_ddpm', type=bool, default=False)
+@click.option('--inference_output_batch_size', type=int, default=100)
+@click.option('--num_grasp_to_visualize', type=int, default=10)
 @click.option('--split', type=str, default='val')
-def main(checkpoints_dir, data_dir, save_dir, use_ddpm, split):
+def main(checkpoints_dir, data_dir, save_dir, use_ddpm, inference_output_batch_size, num_grasp_to_visualize, split):
     s3_client = boto3.client('s3')
     #os.makedirs(save_dir, exist_ok=True)
 
@@ -291,9 +301,15 @@ def main(checkpoints_dir, data_dir, save_dir, use_ddpm, split):
         obj_max_dist = torch.norm(obj_point_map_reshaped - obj_center, dim=1).max()
         obj_point_map_normalized = (obj_point_map - obj_center.view(3, 1, 1)) / obj_max_dist
 
-        predicted_grasp = predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_normalized, 9, device, use_ddpm)[0,0,:]
+        predicted_grasp = predict_normalized_pc_pos_rot_only(nets, noise_scheduler, obj_point_map_normalized, 9, device, use_ddpm, inference_output_batch_size)[:,0,:]
 
-        img = transform_and_visualize_predicted_grasp(predicted_grasp, top_grasp_r7, obj_max_dist, obj_center, cam_intrinsics, image)
+        if num_grasp_to_visualize > inference_output_batch_size:
+            print(f"num_grasp_to_visualize ({num_grasp_to_visualize}) is greater than inference_output_batch_size ({inference_output_batch_size})")
+            print(f"Using the first grasp point for visualization")
+            num_grasp_to_visualize = 1
+
+        img = image
+        img = transform_and_visualize_predicted_grasp(predicted_grasp[:num_grasp_to_visualize], top_grasp_r7, obj_max_dist, obj_center, cam_intrinsics, image, num_grasp_to_visualize)
 
         x_min, y_min, x_max, y_max = bbox
         img = np.array(img)[y_min:y_max, x_min:x_max, :]

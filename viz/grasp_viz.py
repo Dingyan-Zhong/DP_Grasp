@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 import torch
 import numpy as np
 from PIL import Image, ImageDraw
@@ -7,7 +7,7 @@ from scipy.spatial.transform import Rotation as R
 
 
 def draw_top_grasp_point(grasp_point: torch.Tensor, 
-                         rgb: torch.Tensor, 
+                         rgb: Union[torch.Tensor, np.ndarray, Image.Image], 
                          cam_intrinsics: torch.Tensor,
                          save_dir: Optional[str] = None,
                          finger_length: float = 0.07, 
@@ -17,14 +17,17 @@ def draw_top_grasp_point(grasp_point: torch.Tensor,
     
     # Convert tensors to numpy arrays
     grasp_point_npy = grasp_point.detach().cpu().numpy() if isinstance(grasp_point, torch.Tensor) else grasp_point
-    rgb_npy = rgb.permute(1, 2, 0).detach().cpu().numpy() if isinstance(rgb, torch.Tensor) else rgb.transpose(1, 2, 0)
-    rgb_npy = (255*rgb_npy).astype(np.uint8)
+    if not isinstance(rgb, Image.Image):
+        rgb_npy = rgb.detach().cpu().numpy() if isinstance(rgb, torch.Tensor) else rgb
+        if len(rgb_npy.shape) == 3:
+            rgb_npy = rgb_npy.transpose(1,2,0)
+        rgb_npy = (255*rgb_npy).astype(np.uint8) if rgb_npy.dtype != np.uint8 else rgb_npy
     cam_intrinsics_npy = cam_intrinsics.detach().cpu().numpy() if isinstance(cam_intrinsics, torch.Tensor) else cam_intrinsics
 
-    img = Image.fromarray(rgb_npy)
+    img = rgb if isinstance(rgb, Image.Image) else Image.fromarray(rgb_npy)
     draw = ImageDraw.Draw(img)
 
-    if grasp_point_npy.shape[-1] == 7:
+    if len(grasp_point_npy.shape) == 1 and grasp_point_npy.shape[-1] == 7:
         # The Grasp Point is a 7D vector, [x, y, z, axis-angle rotation, width]
         rotation = R.from_rotvec(grasp_point_npy[3:6]).as_matrix()
         transform = np.eye(4)
@@ -49,7 +52,7 @@ def draw_top_grasp_point(grasp_point: torch.Tensor,
         all_points = np.stack([mid_point_base, tail_point_base, left_finger_ends, left_finger_tips, right_finger_ends, right_finger_tips], axis=0)
         all_points = np.matmul(all_points, transform.T)[:, :3]
 
-    elif grasp_point_npy.shape[-1] == 9:
+    elif len(grasp_point_npy.shape) == 1 and grasp_point_npy.shape[-1] == 9:
         # The Grasp Point is a 9D vector, [x_positive, y_positive, z_positive, x_negative, y_negative, z_negative, negated z_direction]
         # We don't have "left" or "right" in the grasp point, as the gripper is symmetric. 
         # Positive means the line from the tcp to the finger tip is along the positive direction of tcp frame's y-axis
