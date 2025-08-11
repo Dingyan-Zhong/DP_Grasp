@@ -3,9 +3,9 @@ parquet_path: /home/ubuntu/data_parquet/dp_grasp/filtered_big.parquet
 checkpoint_dir: checkpoints/DP_Grasp/64-3000-big-filtered
 checkpoint_path: checkpoints/best_model.pth
 sample_idx: 0
-batch_size: 32
+batch_size: 128
 num_epochs: 3000
-lr: 0.0002
+lr: 0.0004
 target_size: [64, 64]
 grasp_dim: 10
 num_train_timesteps: 1000
