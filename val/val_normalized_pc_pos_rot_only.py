@@ -248,7 +248,8 @@ def main(checkpoints_dir, data_dir, save_dir, use_ddpm, inference_output_batch_s
             # clip output to [-1,1] to improve stability
             clip_sample=True,
             # our network predicts noise (instead of denoised action)
-            prediction_type='epsilon'
+            prediction_type='epsilon',
+            eta=1.0
         )
 
     noise_pred_net = ConditionalUnet1D(
