@@ -9,7 +9,7 @@ lr: 0.0002
 target_size: [64, 64]
 grasp_dim: 10
 num_train_timesteps: 1000
-num_workers: 32
+num_workers: 16
 use_wandb: true
 use_top_grasp: false
 inference_steps: 50
