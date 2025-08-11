@@ -1,6 +1,6 @@
 mode: train
 parquet_path: /home/ubuntu/data_parquet/dp_grasp/filtered_big.parquet
-checkpoint_dir: checkpoints/64-3000-big-filtered
+checkpoint_dir: checkpoints/DP_Grasp/64-3000-big-filtered
 checkpoint_path: checkpoints/best_model.pth
 sample_idx: 0
 batch_size: 32
@@ -11,7 +11,7 @@ grasp_dim: 10
 num_train_timesteps: 1000
 num_workers: 32
 use_wandb: true
-use_top_grasp: true
+use_top_grasp: false
 inference_steps: 50
 beta_schedule: squaredcos_cap_v2
 use_position_only: false
